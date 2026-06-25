@@ -1,26 +1,62 @@
-import { ProductForm } from "@/lib/types/product";
+
+
+// components/ProductFormModal.tsx
+"use client";
+
+import { useEffect } from "react";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm, type Resolver } from "react-hook-form";
+import { z } from "zod";
+
+import { productSchema } from "@/schema/productSchema";
+
+type ProductForm = z.infer<typeof productSchema>;
 
 type Props = {
   isOpen: boolean;
   editingId: number | null;
-  form: ProductForm;
+  initialData?: ProductForm;
   isSaving: boolean;
   formError: string | null;
-  onChange: (form: ProductForm) => void;
-  onSubmit: (e: React.FormEvent) => void;
+  onSubmit: (data: ProductForm) => void;
   onClose: () => void;
+};
+
+const defaultValues: ProductForm = {
+  title: "",
+  description: "",
+  price: 0,
+  categoryId: 1,
+  images: [""],
 };
 
 export function ProductFormModal({
   isOpen,
   editingId,
-  form,
+  initialData,
   isSaving,
   formError,
-  onChange,
   onSubmit,
   onClose,
 }: Props) {
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors },
+  } = useForm<ProductForm>({
+    resolver: zodResolver(productSchema) as Resolver<ProductForm>,
+    defaultValues,
+  });
+
+  useEffect(() => {
+    if (initialData) {
+      reset(initialData);
+    } else {
+      reset(defaultValues);
+    }
+  }, [initialData, reset]);
+
   if (!isOpen) return null;
 
   return (
@@ -29,9 +65,10 @@ export function ProductFormModal({
         {/* Header */}
         <div className="mb-5 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-gray-900">
-            {editingId !== null ? "Edit Product" : "New Product"}
+            {editingId ? "Edit Product" : "New Product"}
           </h2>
           <button
+            type="button"
             onClick={onClose}
             className="rounded-lg p-1 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
           >
@@ -39,19 +76,22 @@ export function ProductFormModal({
           </button>
         </div>
 
-        <form onSubmit={onSubmit} className="flex flex-col gap-4">
+        <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
           {/* Title */}
           <div>
             <label className="mb-1 block text-sm font-medium text-gray-700">
               Title
             </label>
             <input
-              required
-              value={form.title}
-              onChange={(e) => onChange({ ...form, title: e.target.value })}
+              {...register("title")}
               placeholder="Product name"
-              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 text-gray-900"
             />
+            {errors.title && (
+              <p className="mt-1 text-sm text-red-500">
+                {errors.title.message}
+              </p>
+            )}
           </div>
 
           {/* Price + Category */}
@@ -61,30 +101,32 @@ export function ProductFormModal({
                 Price ($)
               </label>
               <input
-                required
                 type="number"
-                min={0}
-                value={form.price}
-                onChange={(e) =>
-                  onChange({ ...form, price: Number(e.target.value) })
-                }
-                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                step="0.01"
+                {...register("price")}
+                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 text-gray-900"
               />
+              {errors.price && (
+                <p className="mt-1 text-sm text-red-500">
+                  {errors.price.message}
+                </p>
+              )}
             </div>
+
             <div>
               <label className="mb-1 block text-sm font-medium text-gray-700">
                 Category ID
               </label>
               <input
-                required
                 type="number"
-                min={1}
-                value={form.categoryId}
-                onChange={(e) =>
-                  onChange({ ...form, categoryId: Number(e.target.value) })
-                }
-                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                {...register("categoryId")}
+                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 text-gray-900"
               />
+              {errors.categoryId && (
+                <p className="mt-1 text-sm text-red-500">
+                  {errors.categoryId.message}
+                </p>
+              )}
             </div>
           </div>
 
@@ -94,13 +136,16 @@ export function ProductFormModal({
               Description
             </label>
             <textarea
-              required
               rows={3}
-              value={form.description}
-              onChange={(e) => onChange({ ...form, description: e.target.value })}
+              {...register("description")}
               placeholder="Short product description"
-              className="w-full resize-none rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              className="w-full resize-none rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 text-gray-900"
             />
+            {errors.description && (
+              <p className="mt-1 text-sm text-red-500">
+                {errors.description.message}
+              </p>
+            )}
           </div>
 
           {/* Image URL */}
@@ -109,22 +154,26 @@ export function ProductFormModal({
               Image URL
             </label>
             <input
-              value={form.images[0]}
-              onChange={(e) => onChange({ ...form, images: [e.target.value] })}
+              {...register("images.0")}
               placeholder="https://example.com/image.jpg"
-              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 text-gray-900"
             />
+            {errors.images?.[0] && (
+              <p className="mt-1 text-sm text-red-500">
+                {errors.images[0].message}
+              </p>
+            )}
           </div>
 
-          {/* Error */}
+          {/* API Error */}
           {formError && (
-            <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">
+            <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">
               {formError}
-            </p>
+            </div>
           )}
 
-          {/* Actions */}
-          <div className="mt-1 flex gap-3">
+          {/* Buttons */}
+          <div className="mt-2 flex gap-3">
             <button
               type="button"
               onClick={onClose}
@@ -135,13 +184,13 @@ export function ProductFormModal({
             <button
               type="submit"
               disabled={isSaving}
-              className="flex-1 rounded-lg bg-blue-600 py-2.5 text-sm font-medium text-white transition hover:bg-blue-700 disabled:opacity-60"
+              className="flex-1 rounded-lg bg-blue-600 py-2.5 text-sm font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isSaving
                 ? "Saving..."
-                : editingId !== null
-                ? "Save Changes"
-                : "Create Product"}
+                : editingId
+                  ? "Save Changes"
+                  : "Create Product"}
             </button>
           </div>
         </form>

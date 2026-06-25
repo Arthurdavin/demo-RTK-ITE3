@@ -1,22 +1,15 @@
 // lib/store.ts
 import { configureStore } from "@reduxjs/toolkit";
-import counterReducer from "./features/counter/counterSlice";
-import productReducer from "./features/product/productSlice";
-import { productApi } from "./service/productApi";
-import { ecommerceApi } from "./features/api/ecommerceApi";
+import { ecommerceApi } from "./api";
 
 export const makeStore = () => {
   return configureStore({
     reducer: {
-      counter: counterReducer,
-      products: productReducer,
-      [productApi.reducerPath]: productApi.reducer,
       [ecommerceApi.reducerPath]: ecommerceApi.reducer,
     },
     middleware: (getDefaultMiddleware) =>
       getDefaultMiddleware()
-    .concat(productApi.middleware)
-    .concat(ecommerceApi.middleware),
+    .concat(ecommerceApi.middleware)
   });
 };
 

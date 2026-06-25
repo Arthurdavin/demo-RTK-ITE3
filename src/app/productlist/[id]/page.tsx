@@ -1,20 +1,8 @@
-// import ProductDetailPage from '@/Components/ProductDetail'
-// import React from 'react'
-
-// export default function page() {
-//   return (
-//     <div>
-//         <ProductDetailPage/>
-//     </div>
-//   )
-// }
-
-
 "use client";
 
 import { use } from "react";
 import Link from "next/link";
-import { useGetProductByIdQuery, useGetProductsQuery } from "../../../lib/service/productApi";
+import { useGetProductByIdQuery, useGetProductsQuery } from "@/redux/services/product/productApi";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Product = {

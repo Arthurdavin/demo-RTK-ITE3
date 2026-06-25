@@ -1,9 +1,10 @@
-import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
+import { ecommerceApi } from "@/redux/api";
+
 import {
   Product,
   CreateProductDto,
   UpdateProductDto,
-} from "../types/product";
+} from "@/lib/types/product";
 
 interface PaginationParams {
   offset?: number;
@@ -26,14 +27,9 @@ interface DeleteProductArgs {
   accessToken: string;
 }
 
-export const productApi = createApi({
-  reducerPath: "productApi",
-  baseQuery: fetchBaseQuery({
-    baseUrl:  process.env.NEXT_PUBLIC_API_URL}),
-  tagTypes: ["Product"],
-
+export const productApi = ecommerceApi.injectEndpoints({
   endpoints: (builder) => ({
-    // GET all products
+    // GET ALL
     getProducts: builder.query<Product[], PaginationParams | void>({
       query: (params) => {
         const offset = params?.offset ?? 0;
@@ -45,7 +41,7 @@ export const productApi = createApi({
       providesTags: [{ type: "Product", id: "LIST" }],
     }),
 
-    // GET product by id
+    // GET BY ID
     getProductById: builder.query<Product, number>({
       query: (id) => `/products/${id}`,
 
@@ -64,8 +60,7 @@ export const productApi = createApi({
         },
         body: newProduct,
       }),
-//invalidatesTags គឺជា mechanism របស់ RTK Query Cache System ដែលប្រាប់ RTK Query ថា: 
-// "Data ដែល cache ទុកមុននេះ លែង valid ហើយ, សូម fetch ថ្មីមកវិញ។"
+
       invalidatesTags: [{ type: "Product", id: "LIST" }],
     }),
 
@@ -102,6 +97,8 @@ export const productApi = createApi({
       ],
     }),
   }),
+
+  overrideExisting: false,
 });
 
 export const {
@@ -111,3 +108,22 @@ export const {
   useUpdateProductMutation,
   useDeleteProductMutation,
 } = productApi;
+
+// import { Product } from "@/lib/types/product";
+
+// export type Category = {
+//   id: number;
+//   name: string;
+//   slug: string;
+//   image: string;
+// };
+
+// export const ProductApi = ecommerceApi.injectEndpoints({
+//   endpoints: (builder) => ({
+//     getCategories: builder.query<Product[], void>({
+//       query: () => "/products",
+//     }),
+//   }),
+// });
+
+// export const { useGetCategoriesQuery } = ProductApi;

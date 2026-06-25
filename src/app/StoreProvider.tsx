@@ -3,8 +3,9 @@
 
 
 import { Provider } from 'react-redux'
-import { makeStore, AppStore } from '../lib/store'
+// import { makeStore, AppStore } from '../lib/store'
 import { useRef } from 'react'
+import { AppStore, makeStore } from '@/redux/store'
 
 export default function StoreProvider({
   children,

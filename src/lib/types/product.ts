@@ -31,4 +31,12 @@ export type ProductForm = {
   images: string[];
 };
 
+export type ProductFormValues = {
+  title: string;
+  price: number;
+  description: string;
+  categoryId: number;
+  images: string;
+};
+
 export type UpdateProductDto = Partial<CreateProductDto>;

@@ -1,14 +1,26 @@
 
 
 // components/ProductFormModal.tsx
+
 "use client";
 
 import { useEffect } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, type Resolver } from "react-hook-form";
 import { z } from "zod";
+import { X, Plus, Image } from "lucide-react";
 
 import { productSchema } from "@/schema/productSchema";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 
 type ProductForm = z.infer<typeof productSchema>;
 
@@ -43,158 +55,152 @@ export function ProductFormModal({
     register,
     handleSubmit,
     reset,
+    watch,
     formState: { errors },
   } = useForm<ProductForm>({
     resolver: zodResolver(productSchema) as Resolver<ProductForm>,
     defaultValues,
   });
 
+  const descriptionValue = watch("description") ?? "";
+
   useEffect(() => {
-    if (initialData) {
-      reset(initialData);
-    } else {
-      reset(defaultValues);
-    }
+    reset(initialData ?? defaultValues);
   }, [initialData, reset]);
 
-  if (!isOpen) return null;
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 backdrop-blur-sm">
-      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="sm:max-w-[460px] gap-0 p-0 overflow-hidden">
+
         {/* Header */}
-        <div className="mb-5 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-gray-900">
-            {editingId ? "Edit Product" : "New Product"}
-          </h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg p-1 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
-          >
-            ✕
-          </button>
-        </div>
+        <DialogHeader className="px-6 pt-5 pb-4 border-b border-border">
+          <p className="text-xs font-medium tracking-widest uppercase text-accent-foreground mb-0.5">
+            {editingId ? "Edit product" : "New product"}
+          </p>
+          <DialogTitle className="text-[17px] font-medium">
+            Product details
+          </DialogTitle>
+        </DialogHeader>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
-          {/* Title */}
-          <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">
-              Title
-            </label>
-            <input
-              {...register("title")}
-              placeholder="Product name"
-              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 text-gray-900"
-            />
-            {errors.title && (
-              <p className="mt-1 text-sm text-red-500">
-                {errors.title.message}
-              </p>
-            )}
-          </div>
+        <form onSubmit={handleSubmit(onSubmit)}>
+          <div className="px-6 py-5 flex flex-col gap-4">
 
-          {/* Price + Category */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700">
-                Price ($)
-              </label>
-              <input
-                type="number"
-                step="0.01"
-                {...register("price")}
-                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 text-gray-900"
+            {/* Title */}
+            <div className="flex flex-col gap-1.5">
+              <Label className="text-xs font-medium text-muted-foreground">
+                Title
+              </Label>
+              <Input
+                {...register("title")}
+                placeholder="e.g. MacBook Pro M4"
               />
-              {errors.price && (
-                <p className="mt-1 text-sm text-red-500">
-                  {errors.price.message}
-                </p>
+              {errors.title && (
+                <p className="text-xs text-destructive">{errors.title.message}</p>
               )}
             </div>
 
-            <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700">
-                Category ID
-              </label>
-              <input
-                type="number"
-                {...register("categoryId")}
-                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 text-gray-900"
+            {/* Price + Category */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="flex flex-col gap-1.5">
+                <Label className="text-xs font-medium text-muted-foreground">
+                  Price
+                </Label>
+                <div className="relative">
+                  <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none">
+                    $
+                  </span>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    className="pl-6"
+                    placeholder="0.00"
+                    {...register("price")}
+                  />
+                </div>
+                {errors.price && (
+                  <p className="text-xs text-destructive">{errors.price.message}</p>
+                )}
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <Label className="text-xs font-medium text-muted-foreground">
+                  Category ID
+                </Label>
+                <Input
+                  type="number"
+                  placeholder="1"
+                  {...register("categoryId")}
+                />
+                {errors.categoryId && (
+                  <p className="text-xs text-destructive">{errors.categoryId.message}</p>
+                )}
+              </div>
+            </div>
+
+            {/* Description */}
+            <div className="flex flex-col gap-1.5">
+              <div className="flex items-baseline justify-between">
+                <Label className="text-xs font-medium text-muted-foreground">
+                  Description
+                </Label>
+                <span className="text-[11px] text-muted-foreground">
+                  {descriptionValue.length} / 500
+                </span>
+              </div>
+              <Textarea
+                rows={3}
+                className="resize-none"
+                placeholder="Describe the product features and details..."
+                {...register("description")}
               />
-              {errors.categoryId && (
-                <p className="mt-1 text-sm text-red-500">
-                  {errors.categoryId.message}
-                </p>
+              {errors.description && (
+                <p className="text-xs text-destructive">{errors.description.message}</p>
               )}
             </div>
-          </div>
 
-          {/* Description */}
-          <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">
-              Description
-            </label>
-            <textarea
-              rows={3}
-              {...register("description")}
-              placeholder="Short product description"
-              className="w-full resize-none rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 text-gray-900"
-            />
-            {errors.description && (
-              <p className="mt-1 text-sm text-red-500">
-                {errors.description.message}
-              </p>
-            )}
-          </div>
-
-          {/* Image URL */}
-          <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">
-              Image URL
-            </label>
-            <input
-              {...register("images.0")}
-              placeholder="https://example.com/image.jpg"
-              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 text-gray-900"
-            />
-            {errors.images?.[0] && (
-              <p className="mt-1 text-sm text-red-500">
-                {errors.images[0].message}
-              </p>
-            )}
-          </div>
-
-          {/* API Error */}
-          {formError && (
-            <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">
-              {formError}
+            {/* Image URL */}
+            <div className="flex flex-col gap-1.5">
+              <Label className="text-xs font-medium text-muted-foreground">
+                Image URL
+              </Label>
+              <div className="relative">
+                <Image
+                  size={15}
+                  className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
+                />
+                <Input
+                  className="pl-8"
+                  placeholder="https://example.com/image.jpg"
+                  {...register("images.0")}
+                />
+              </div>
+              {errors.images?.[0] && (
+                <p className="text-xs text-destructive">{errors.images[0].message}</p>
+              )}
             </div>
-          )}
 
-          {/* Buttons */}
-          <div className="mt-2 flex gap-3">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 rounded-lg border border-gray-200 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
-            >
+            {/* API Error */}
+            {formError && (
+              <div className="rounded-lg bg-destructive/10 px-3 py-2 text-xs text-destructive">
+                {formError}
+              </div>
+            )}
+
+          </div>
+
+          {/* Footer */}
+          <div className="px-6 py-4 border-t border-border flex justify-end gap-2">
+            <Button type="button" variant="outline" size="sm" onClick={onClose}>
               Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={isSaving}
-              className="flex-1 rounded-lg bg-blue-600 py-2.5 text-sm font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {isSaving
-                ? "Saving..."
-                : editingId
-                  ? "Save Changes"
-                  : "Create Product"}
-            </button>
+            </Button>
+            <Button type="submit" size="sm" disabled={isSaving}>
+              <Plus size={14} />
+              {isSaving ? "Saving..." : editingId ? "Save changes" : "Create product"}
+            </Button>
           </div>
         </form>
-      </div>
-    </div>
+
+      </DialogContent>
+    </Dialog>
   );
 }

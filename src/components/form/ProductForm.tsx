@@ -27,7 +27,7 @@ export default function ProductForm() {
     reset,
     formState: { errors, isSubmitting },
   } = useForm<ProductFormValues>({
-    resolver:zodResolver(productShema),
+    resolver:zodResolver(productShema) as any,
     defaultValues: {
       title: "",
       price: 0,

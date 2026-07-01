@@ -26,6 +26,12 @@ interface DeleteProductArgs {
   accessToken: string;
 }
 
+export type UploadFileResponse = {
+  originalname: string;
+  filename: string;
+  location: string;
+};
+
 export const productApi = createApi({
   reducerPath: "productApi",
   baseQuery: fetchBaseQuery({
@@ -101,6 +107,18 @@ export const productApi = createApi({
         { type: "Product", id: "LIST" },
       ],
     }),
+
+    uploadFile:builder.mutation<UploadFileResponse,File>({
+      query:(file) => {
+        const formData = new FormData();
+        formData.append("file",file);
+        return {
+          url:"/files/upload",
+          method:"Post",
+          body:formData,
+        }
+      }
+    })
   }),
 });
 
@@ -110,4 +128,5 @@ export const {
   useCreateProductMutation,
   useUpdateProductMutation,
   useDeleteProductMutation,
+  useUploadFileMutation
 } = productApi;

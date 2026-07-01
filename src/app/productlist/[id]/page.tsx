@@ -94,6 +94,7 @@ export default function ProductDetailPage({
         <div className="flex flex-col gap-3">
           <div className="overflow-hidden rounded-2xl border border-gray-100 bg-gray-50">
             <img
+            crossOrigin="anonymous"
               src={mainImage}
               alt={product.title}
               className="h-96 w-full object-cover"

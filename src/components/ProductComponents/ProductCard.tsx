@@ -15,12 +15,14 @@ export function ProductCard({ product, onEdit, onDelete }: Props) {
     >
       <div className="relative h-48 bg-gray-100">
         <img
-          src={product.images?.[0] || "https://placehold.co/400x300?text=No+Image"}
+          crossOrigin="anonymous"
+          src={
+            product.images?.[0] ?? "https://placehold.co/400x300?text=No+Image"
+          }
           alt={product.title}
-          className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
+          className="h-full w-full object-cover"
           onError={(e) => {
-            (e.target as HTMLImageElement).src =
-              "https://placehold.co/400x300?text=No+Image";
+            e.currentTarget.src = "https://placehold.co/400x300?text=No+Image";
           }}
         />
       </div>

@@ -108,22 +108,3 @@ export const {
   useUpdateProductMutation,
   useDeleteProductMutation,
 } = productApi;
-
-// import { Product } from "@/lib/types/product";
-
-// export type Category = {
-//   id: number;
-//   name: string;
-//   slug: string;
-//   image: string;
-// };
-
-// export const ProductApi = ecommerceApi.injectEndpoints({
-//   endpoints: (builder) => ({
-//     getCategories: builder.query<Product[], void>({
-//       query: () => "/products",
-//     }),
-//   }),
-// });
-
-// export const { useGetCategoriesQuery } = ProductApi;

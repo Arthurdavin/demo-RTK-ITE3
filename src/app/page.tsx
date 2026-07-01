@@ -1,15 +1,16 @@
 // app/page.tsx
 'use client'
 
-import { ProductList } from "@/components/ProductList"
-import ProductTest from "@/components/ProductTest"
+import ProductForm from "@/components/form/ProductForm"
 
 export default function Home() {
 
   return (
     <div>
+        <ProductForm/>
         {/* <CounterComponent /> */}
-        <ProductTest/>
+        {/* <ProductTest/> */}
+        
     </div>
   )
   

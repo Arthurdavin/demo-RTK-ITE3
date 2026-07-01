@@ -17,8 +17,8 @@ export interface Product {
 
 export interface CreateProductDto {
   title: string;
-  price: number;
   description: string;
+  price: number;
   categoryId: number;
   images: string[];
 }

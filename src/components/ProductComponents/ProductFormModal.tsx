@@ -1,16 +1,11 @@
-
-
-// components/ProductFormModal.tsx
-
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm, type Resolver } from "react-hook-form";
+import { Controller, useForm, type Resolver } from "react-hook-form";
 import { z } from "zod";
-import { X, Plus, Image } from "lucide-react";
+import { Plus, Image as ImageIcon } from "lucide-react";
 
-import { productSchema } from "@/schema/productSchema";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -21,25 +16,53 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { CreateProductRequest } from "@/lib/features/api/ProductApi";
+import { useUploadFileMutation } from "@/lib/service/productApi";
+
+// ---- Form-level schema: collects a File, not a URL ----
+const productSchema = z.object({
+  title: z.string().min(5, "Title must be at least 5 characters"),
+
+  description: z.string().min(5, "Description is required"),
+
+  price: z.coerce.number().positive("Price must be greater than 0"),
+
+  categoryId: z.coerce
+    .number()
+    .int()
+    .positive("Category ID must be greater than 0"),
+
+  image: z
+    .instanceof(File, { message: "Please select an image" })
+    .refine((file) => file.size > 0, "Please select an image")
+    .refine(
+      (file) => file.size <= 5000 * 5000,
+      "Image must be smaller than 1MB"
+    ),
+});
 
 type ProductForm = z.infer<typeof productSchema>;
+
+// initialData (edit mode): the existing image is a URL, not a File
+type InitialData = Omit<ProductForm, "image"> & {
+  imageUrl?: string;
+};
 
 type Props = {
   isOpen: boolean;
   editingId: number | null;
-  initialData?: ProductForm;
+  initialData?: InitialData;
   isSaving: boolean;
   formError: string | null;
-  onSubmit: (data: ProductForm) => void;
+  onSubmit: (data: CreateProductRequest) => void;
   onClose: () => void;
 };
 
-const defaultValues: ProductForm = {
+const defaultValues: Omit<ProductForm, "image"> = {
   title: "",
   description: "",
   price: 0,
   categoryId: 1,
-  images: [""],
 };
 
 export function ProductFormModal({
@@ -51,22 +74,61 @@ export function ProductFormModal({
   onSubmit,
   onClose,
 }: Props) {
+  const [uploadFile, { isLoading: isUploading }] = useUploadFileMutation();
+  const [uploadError, setUploadError] = useState<string | null>(null);
+
   const {
     register,
     handleSubmit,
+    control,
     reset,
     watch,
     formState: { errors },
   } = useForm<ProductForm>({
     resolver: zodResolver(productSchema) as Resolver<ProductForm>,
-    defaultValues,
+    defaultValues: defaultValues as ProductForm,
   });
 
   const descriptionValue = watch("description") ?? "";
+  const image = watch("image");
 
   useEffect(() => {
-    reset(initialData ?? defaultValues);
+    reset(
+      initialData
+        ? {
+            title: initialData.title,
+            description: initialData.description,
+            price: initialData.price,
+            categoryId: initialData.categoryId,
+            // image left unset on edit — user must pick a new file to replace it
+          }
+        : (defaultValues as ProductForm)
+    );
+    setUploadError(null);
   }, [initialData, reset]);
+
+  async function handleFormSubmit(data: ProductForm) {
+    setUploadError(null);
+
+    try {
+      const uploaded = await uploadFile(data.image).unwrap();
+
+      const payload: CreateProductRequest = {
+        title: data.title,
+        description: data.description,
+        price: data.price,
+        categoryId: data.categoryId,
+        images: [uploaded.location],
+      };
+
+      onSubmit(payload);
+    } catch (err) {
+      console.error(err);
+      setUploadError("Image upload failed. Please try again.");
+    }
+  }
+
+  const busy = isSaving || isUploading;
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -82,7 +144,7 @@ export function ProductFormModal({
           </DialogTitle>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit(onSubmit)}>
+        <form onSubmit={handleSubmit(handleFormSubmit)}>
           <div className="px-6 py-5 flex flex-col gap-4">
 
             {/* Title */}
@@ -158,31 +220,68 @@ export function ProductFormModal({
               )}
             </div>
 
-            {/* Image URL */}
+            {/* Image Upload */}
             <div className="flex flex-col gap-1.5">
               <Label className="text-xs font-medium text-muted-foreground">
-                Image URL
+                Product Image
               </Label>
-              <div className="relative">
-                <Image
-                  size={15}
-                  className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
+
+              <Controller
+                name="image"
+                control={control}
+                render={({ field: { onChange, onBlur, name, ref } }) => (
+                  <div className="relative">
+                    <ImageIcon
+                      size={15}
+                      className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
+                    />
+                    <Input
+                      type="file"
+                      accept="image/*"
+                      className="pl-8"
+                      name={name}
+                      ref={ref}
+                      onBlur={onBlur}
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) onChange(file);
+                      }}
+                    />
+                  </div>
+                )}
+              />
+
+              {errors.image && (
+                <p className="text-xs text-destructive">
+                  {errors.image.message as string}
+                </p>
+              )}
+
+              {/* New file selected -> live preview */}
+              {image instanceof File && (
+                <img
+                crossOrigin="anonymous"
+                  src={URL.createObjectURL(image)}
+                  alt="preview"
+                  className="mt-1 w-24 h-24 object-cover rounded-lg border border-border"
                 />
-                <Input
-                  className="pl-8"
-                  placeholder="https://example.com/image.jpg"
-                  {...register("images.0")}
+              )}
+
+              {/* Editing, no new file chosen yet -> show current image */}
+              {!(image instanceof File) && initialData?.imageUrl && (
+                <img
+                crossOrigin="anonymous"
+                  src={initialData.imageUrl}
+                  alt="current"
+                  className="mt-1 w-24 h-24 object-cover rounded-lg border border-border"
                 />
-              </div>
-              {errors.images?.[0] && (
-                <p className="text-xs text-destructive">{errors.images[0].message}</p>
               )}
             </div>
 
-            {/* API Error */}
-            {formError && (
+            {/* API / Upload Error */}
+            {(formError || uploadError) && (
               <div className="rounded-lg bg-destructive/10 px-3 py-2 text-xs text-destructive">
-                {formError}
+                {formError ?? uploadError}
               </div>
             )}
 
@@ -193,9 +292,9 @@ export function ProductFormModal({
             <Button type="button" variant="outline" size="sm" onClick={onClose}>
               Cancel
             </Button>
-            <Button type="submit" size="sm" disabled={isSaving}>
+            <Button type="submit" size="sm" disabled={busy}>
               <Plus size={14} />
-              {isSaving ? "Saving..." : editingId ? "Save changes" : "Create product"}
+              {busy ? "Saving..." : editingId ? "Save changes" : "Create product"}
             </Button>
           </div>
         </form>
@@ -204,3 +303,318 @@ export function ProductFormModal({
     </Dialog>
   );
 }
+
+// "use client";
+
+// import { useEffect, useState } from "react";
+// import { zodResolver } from "@hookform/resolvers/zod";
+// import { Controller, useForm, type Resolver } from "react-hook-form";
+// import { z } from "zod";
+// import { Plus, Image as ImageIcon } from "lucide-react";
+
+// import { useUploadFileMutation } from "@/lib/features/api/ProductApi";
+// import { Button } from "@/components/ui/button";
+// import {
+//   Dialog,
+//   DialogContent,
+//   DialogHeader,
+//   DialogTitle,
+// } from "@/components/ui/dialog";
+// import { Input } from "@/components/ui/input";
+// import { Textarea } from "@/components/ui/textarea";
+// import { Label } from "@/components/ui/label";
+
+// // ---- Schema (form-level shape: collects a File) ----
+// const productSchema = z.object({
+//   title: z.string().min(5, "Title must be at least 5 characters"),
+
+//   description: z.string().min(5, "Description is required"),
+
+//   price: z.coerce.number().positive("Price must be greater than 0"),
+
+//   categoryId: z.coerce
+//     .number()
+//     .int()
+//     .positive("Category ID must be greater than 0"),
+
+//   image: z
+//     .instanceof(File, { message: "Please select an image" })
+//     .refine((file) => file.size > 0, "Please select an image")
+//     .refine(
+//       (file) => file.size <= 1024 * 1024,
+//       "Image must be smaller than 1MB"
+//     ),
+// });
+
+// type ProductForm = z.infer<typeof productSchema>;
+
+// // ---- Shape actually sent to the API ----
+// export type ProductPayload = {
+//   title: string;
+//   description: string;
+//   price: number;
+//   categoryId: number;
+//   images: string[];
+// };
+
+// // initialData is for "edit" mode: the existing image is a URL string,
+// // not a File, since you can't re-create a File from a URL.
+// type InitialData = Omit<ProductForm, "image"> & {
+//   imageUrl?: string;
+// };
+
+// type Props = {
+//   isOpen: boolean;
+//   editingId: number | null;
+//   initialData?: InitialData;
+//   isSaving: boolean;
+//   formError: string | null;
+//   onSubmit: (data: ProductPayload) => void;
+//   onClose: () => void;
+// };
+
+// const defaultValues: Omit<ProductForm, "image"> = {
+//   title: "",
+//   description: "",
+//   price: 0,
+//   categoryId: 1,
+// };
+
+// export function ProductFormModal({
+//   isOpen,
+//   editingId,
+//   initialData,
+//   isSaving,
+//   formError,
+//   onSubmit,
+//   onClose,
+// }: Props) {
+//   const [uploadFile, { isLoading: isUploading }] = useUploadFileMutation();
+//   const [uploadError, setUploadError] = useState<string | null>(null);
+
+//   const {
+//     register,
+//     handleSubmit,
+//     control,
+//     reset,
+//     watch,
+//     formState: { errors },
+//   } = useForm<ProductForm>({
+//     resolver: zodResolver(productSchema) as Resolver<ProductForm>,
+//     defaultValues: defaultValues as ProductForm,
+//   });
+
+//   const descriptionValue = watch("description") ?? "";
+//   const image = watch("image");
+
+//   useEffect(() => {
+//     reset(
+//       initialData
+//         ? {
+//             title: initialData.title,
+//             description: initialData.description,
+//             price: initialData.price,
+//             categoryId: initialData.categoryId,
+//             // image stays unset on edit until the user picks a new file;
+//             // we just preview the existing imageUrl separately below.
+//           }
+//         : (defaultValues as ProductForm)
+//     );
+//   }, [initialData, reset]);
+
+//   async function handleFormSubmit(data: ProductForm) {
+//     setUploadError(null);
+
+//     try {
+//       // 1. Upload the raw File first
+//       const uploaded = await uploadFile(data.image).unwrap();
+
+//       // 2. Build the payload the API actually expects: images as string[]
+//       const payload: ProductPayload = {
+//         title: data.title,
+//         description: data.description,
+//         price: data.price,
+//         categoryId: data.categoryId,
+//         images: [uploaded.location], // adjust key if your API response differs
+//       };
+
+//       onSubmit(payload);
+//     } catch (err) {
+//       console.error(err);
+//       setUploadError("Image upload failed. Please try again.");
+//     }
+//   }
+
+//   const busy = isSaving || isUploading;
+
+//   return (
+//     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+//       <DialogContent className="sm:max-w-[460px] gap-0 p-0 overflow-hidden">
+
+//         {/* Header */}
+//         <DialogHeader className="px-6 pt-5 pb-4 border-b border-border">
+//           <p className="text-xs font-medium tracking-widest uppercase text-accent-foreground mb-0.5">
+//             {editingId ? "Edit product" : "New product"}
+//           </p>
+//           <DialogTitle className="text-[17px] font-medium">
+//             Product details
+//           </DialogTitle>
+//         </DialogHeader>
+
+//         <form onSubmit={handleSubmit(handleFormSubmit)}>
+//           <div className="px-6 py-5 flex flex-col gap-4">
+
+//             {/* Title */}
+//             <div className="flex flex-col gap-1.5">
+//               <Label className="text-xs font-medium text-muted-foreground">
+//                 Title
+//               </Label>
+//               <Input
+//                 {...register("title")}
+//                 placeholder="e.g. MacBook Pro M4"
+//               />
+//               {errors.title && (
+//                 <p className="text-xs text-destructive">{errors.title.message}</p>
+//               )}
+//             </div>
+
+//             {/* Price + Category */}
+//             <div className="grid grid-cols-2 gap-3">
+//               <div className="flex flex-col gap-1.5">
+//                 <Label className="text-xs font-medium text-muted-foreground">
+//                   Price
+//                 </Label>
+//                 <div className="relative">
+//                   <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none">
+//                     $
+//                   </span>
+//                   <Input
+//                     type="number"
+//                     step="0.01"
+//                     className="pl-6"
+//                     placeholder="0.00"
+//                     {...register("price")}
+//                   />
+//                 </div>
+//                 {errors.price && (
+//                   <p className="text-xs text-destructive">{errors.price.message}</p>
+//                 )}
+//               </div>
+
+//               <div className="flex flex-col gap-1.5">
+//                 <Label className="text-xs font-medium text-muted-foreground">
+//                   Category ID
+//                 </Label>
+//                 <Input
+//                   type="number"
+//                   placeholder="1"
+//                   {...register("categoryId")}
+//                 />
+//                 {errors.categoryId && (
+//                   <p className="text-xs text-destructive">{errors.categoryId.message}</p>
+//                 )}
+//               </div>
+//             </div>
+
+//             {/* Description */}
+//             <div className="flex flex-col gap-1.5">
+//               <div className="flex items-baseline justify-between">
+//                 <Label className="text-xs font-medium text-muted-foreground">
+//                   Description
+//                 </Label>
+//                 <span className="text-[11px] text-muted-foreground">
+//                   {descriptionValue.length} / 500
+//                 </span>
+//               </div>
+//               <Textarea
+//                 rows={3}
+//                 className="resize-none"
+//                 placeholder="Describe the product features and details..."
+//                 {...register("description")}
+//               />
+//               {errors.description && (
+//                 <p className="text-xs text-destructive">{errors.description.message}</p>
+//               )}
+//             </div>
+
+//             {/* Image Upload */}
+//             <div className="flex flex-col gap-1.5">
+//               <Label className="text-xs font-medium text-muted-foreground">
+//                 Product Image
+//               </Label>
+
+//               <Controller
+//                 name="image"
+//                 control={control}
+//                 render={({ field: { onChange, onBlur, name, ref } }) => (
+//                   <div className="relative">
+//                     <ImageIcon
+//                       size={15}
+//                       className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
+//                     />
+//                     <Input
+//                       type="file"
+//                       accept="image/*"
+//                       className="pl-8"
+//                       name={name}
+//                       ref={ref}
+//                       onBlur={onBlur}
+//                       onChange={(e) => {
+//                         const file = e.target.files?.[0];
+//                         if (file) onChange(file);
+//                       }}
+//                     />
+//                   </div>
+//                 )}
+//               />
+
+//               {errors.image && (
+//                 <p className="text-xs text-destructive">
+//                   {errors.image.message as string}
+//                 </p>
+//               )}
+
+//               {/* New file selected -> live preview */}
+//               {image instanceof File && (
+//                 <img
+//                   src={URL.createObjectURL(image)}
+//                   alt="preview"
+//                   className="mt-1 w-24 h-24 object-cover rounded-lg border border-border"
+//                 />
+//               )}
+
+//               {/* Editing an existing product, no new file chosen yet -> show current image */}
+//               {!(image instanceof File) && initialData?.imageUrl && (
+//                 <img
+//                   src={initialData.imageUrl}
+//                   alt="current"
+//                   className="mt-1 w-24 h-24 object-cover rounded-lg border border-border"
+//                 />
+//               )}
+//             </div>
+
+//             {/* API / Upload Error */}
+//             {(formError || uploadError) && (
+//               <div className="rounded-lg bg-destructive/10 px-3 py-2 text-xs text-destructive">
+//                 {formError ?? uploadError}
+//               </div>
+//             )}
+
+//           </div>
+
+//           {/* Footer */}
+//           <div className="px-6 py-4 border-t border-border flex justify-end gap-2">
+//             <Button type="button" variant="outline" size="sm" onClick={onClose}>
+//               Cancel
+//             </Button>
+//             <Button type="submit" size="sm" disabled={busy}>
+//               <Plus size={14} />
+//               {busy ? "Saving..." : editingId ? "Save changes" : "Create product"}
+//             </Button>
+//           </div>
+//         </form>
+
+//       </DialogContent>
+//     </Dialog>
+//   );
+// }
